@@ -1,21 +1,36 @@
-let ListDocs = [], ListEstadistica = [], IntervalClearCola = null, IntervalLoadCola, ultimoId = '', ultimoIdData, valRows='', xsourceEventCola, xPausaError = false;
+let ListDocs = [], ListEstadistica = [], ipUrlLocal='', IntervalClearCola = null, IntervalLoadCola, ultimoId = 0, ultimoIdData, valRows=0, xsourceEventCola, xPausaError = false;
 
 $(document).ready(function() {
-	ultimoId='';
+	ultimoId=0;
+	xUpdateEstructuras();
 	setTimeout(() => {
 		$("body").addClass("loaded");
 		// xInitPrintServer();
-	}, 1000);		
+	}, 1000);	
 	
-	xVerificarColaImpresion();
+	xPrepararData();
 });
+
+function xPrepararData() {
+	const _data_o = getUrlParameter('o', '?');
+	console.log(_data_o);
+	$.ajax({
+		url: './bdphp/log_003.php?op=0',
+		type: 'POST',
+		data: JSON.parse(atob(_data_o))
+	})
+	.done((res) => {
+		ipUrlLocal = res;
+		xVerificarColaImpresion();
+	})
+}
 
 function xVerificarColaImpresion(){
 	if(typeof(EventSource) !== "undefined") {
-		xsourceEventCola = new EventSource('./bdphp/log_003.php?op=201');
+		xsourceEventCola = new EventSource('./bdphp/log_003.php?op=201&u=' + ultimoId);
 		xsourceEventCola.onmessage = function(event) {
 			valRows = event.data === "" ? valRows : event.data;
-			if (valRows !== ultimoId) {
+			if (parseInt(valRows) > parseInt(ultimoId)) {
 				ultimoIdData = event.data;
 				xInitPrintServer();
 			}
@@ -23,6 +38,8 @@ function xVerificarColaImpresion(){
 	    };
 	}
 }
+
+
 
 function xInitPrintServer() {
 	// const _ultimoId = ListDocs.length === 0 ? '' : ultimoId;
@@ -67,20 +84,33 @@ function xInitPrintServer() {
 
 function xSendPrint() {
 	// const _listSend = ListDocs.map((x)=> {
-	ListDocs.map((x, index)=> {
+	ListDocs.map((x)=> {
+	// for (let index = 0; index < ListDocs.length; index++) {
+		// let x = ListDocs[index];	
+
 		if (x.impreso===1) return;
 		if ( xPausaError ) return;
 
 		const _id = x.idprint_server_detalle;
-		const _detalle_json = JSON.parse(x.detalle_json);
-		const _nomUs = x.nomUs.split(' ')[0]; // -> viene de session		
+		let _detalle_json;
+		try {
+			_detalle_json = JSON.parse(x.detalle_json.replace('"{', '{').replace('}"', '}'));
+		} catch (error) {
+			_detalle_json = JSON.parse(x.detalle_json);
+		}
+		
+		let _nomUs = x.idprint_server_estructura === '3' ? '' : _detalle_json.Array_enca.nom_us === undefined ? _detalle_json.Array_enca[0].nom_us : _detalle_json.Array_enca.nom_us; // -> 
+		_nomUs = _nomUs.split(' ')[0];
+		
 		const _listSend = { data: _detalle_json, nom_documento: x.nom_documento, nomUs:_nomUs, hora: x.hora };
 		x.impreso=1;
 		x.error = 0;
 		// return { data: _detalle_json, nom_documento: x.nom_documento, nomUs: _nomUs };
 
+
+
 		$.ajax({
-			url: 'http://192.168.1.64/restobar/print/client/pruebas.print_url.php',
+			url: ipUrlLocal+'/restobar/print/client/pruebas.print_url.php',
 			type: 'POST',
 			data: { arrData: _listSend }
 		})
@@ -192,12 +222,12 @@ function xUpdateEstructuras() {
 			let listEstructuras = _res.datos;
 	
 			$.ajax({
-				url: 'http://192.168.1.64/restobar/print/client/comprobar_estructura.php',
+				url: ipUrlLocal + '/restobar/print/client/comprobar_estructura.php',
 				type: 'POST',
 				data: { arrEstructura: listEstructuras, logo: logo}
 			})
 			.done((res) => {
-				// console.log(res);
+				console.log(res);
 			});	
 	
 		});
@@ -228,6 +258,15 @@ function xGenerarGrafico() {
 		}
 	});
 
+}
+
+function getUrlParameter(sParam,simbolo) {
+	var sPageURL = window.location.href;
+	sPageURL=sPageURL.replace('-',' ');
+	var sURLVariables = sPageURL.split(simbolo);
+	for (var i = 0; i < sURLVariables.length; i++)
+		{ var sParameterName = sURLVariables[i].split('=');
+			if (sParameterName[0] == sParam) { return sParameterName[1]; } }
 }
 
 var groupBy = function (xs, key) {
