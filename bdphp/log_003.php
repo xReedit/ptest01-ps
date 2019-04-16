@@ -75,6 +75,10 @@
 			$sql="update print_server_detalle set estado=1 where idprint_server_detalle in (".$_POST['id'].")";
 			$bd->xConsulta_NoReturn($sql);
 			break;
+		case '302': //guardar impreso=1
+			$sql="update print_server_detalle set error=1 where idprint_server_detalle=".$_POST['id'];
+			$bd->xConsulta_NoReturn($sql);
+			break;
 		case '4': // list estructuras
 			$sql="SELECT nom_documento, v, estructura_json FROM print_server_estructura where estado=0";
 			$bd->xConsulta($sql);			
